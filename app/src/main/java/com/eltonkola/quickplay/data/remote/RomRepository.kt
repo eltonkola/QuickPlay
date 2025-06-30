@@ -1,7 +1,11 @@
-package com.eltonkola.quickplay.ui
+package com.eltonkola.quickplay.data.remote
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.graphics.Bitmap
+import android.graphics.drawable.BitmapDrawable
+import coil.ImageLoader
+import coil.request.ImageRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -13,7 +17,25 @@ import java.net.URL
 import java.net.URLDecoder
 import java.util.zip.ZipInputStream
 
-class RomRepository(private val context: Context) {
+data class RomItem(
+    val name: String,
+    val filename: String,
+    val downloadUrl: String,
+    val mediaId: String = "",
+    val isDownloaded: Boolean = false,
+    val imageUrl: String = "",
+    val downloadFileName: String = "",
+    val isFavorite: Boolean = false
+)
+
+
+interface RomRepository{
+    suspend fun fetchRomsFromWebsite(): List<RomItem>
+    suspend fun downloadRom(rom: RomItem): RomItem
+    suspend fun deleteRom(filename: String)
+}
+
+class RomRepositoryImpl(private val context: Context) : RomRepository {
     private val prefs: SharedPreferences = context.getSharedPreferences("rom_prefs", Context.MODE_PRIVATE)
     private val romsDir = File(context.filesDir, "roms")
 
@@ -23,7 +45,7 @@ class RomRepository(private val context: Context) {
         }
     }
 
-    suspend fun fetchRomsFromWebsite(): List<RomItem> = withContext(Dispatchers.IO) {
+    override suspend fun fetchRomsFromWebsite(): List<RomItem> = withContext(Dispatchers.IO) {
         val baseUrl = "https://www.romsgames.net"
         val url = "$baseUrl/roms/super-nintendo/"
 
@@ -46,8 +68,10 @@ class RomRepository(private val context: Context) {
 
 
                     val relativeUrl = element.attr("href")
-                    val filename = "${name.replace(Regex("[^a-zA-Z0-9\\s]"), "").trim().replace(" ", "_")}.smc"
-                    val downloadUrl = if (relativeUrl.startsWith("http")) relativeUrl else "$baseUrl$relativeUrl"
+                    val filename =
+                        "${name.replace(Regex("[^a-zA-Z0-9\\s]"), "").trim().replace(" ", "_")}.smc"
+                    val downloadUrl =
+                        if (relativeUrl.startsWith("http")) relativeUrl else "$baseUrl$relativeUrl"
 
                     // Extract mediaId from ROM page (we'll need to fetch it)
                     val mediaId = extractMediaId(downloadUrl)
@@ -70,14 +94,38 @@ class RomRepository(private val context: Context) {
         } catch (e: Exception) {
             // Fallback with sample data for development
             listOf(
-                RomItem("Super Mario World", "super_mario_world.smc", "$baseUrl/download/super-mario-world"),
-                RomItem("The Legend of Zelda: A Link to the Past", "zelda_link_to_past.smc", "$baseUrl/download/zelda-link-past"),
+                RomItem(
+                    "Super Mario World",
+                    "super_mario_world.smc",
+                    "$baseUrl/download/super-mario-world"
+                ),
+                RomItem(
+                    "The Legend of Zelda: A Link to the Past",
+                    "zelda_link_to_past.smc",
+                    "$baseUrl/download/zelda-link-past"
+                ),
                 RomItem("Super Metroid", "super_metroid.smc", "$baseUrl/download/super-metroid"),
-                RomItem("Donkey Kong Country", "donkey_kong_country.smc", "$baseUrl/download/donkey-kong-country"),
-                RomItem("Final Fantasy VI", "final_fantasy_vi.smc", "$baseUrl/download/final-fantasy-vi"),
+                RomItem(
+                    "Donkey Kong Country",
+                    "donkey_kong_country.smc",
+                    "$baseUrl/download/donkey-kong-country"
+                ),
+                RomItem(
+                    "Final Fantasy VI",
+                    "final_fantasy_vi.smc",
+                    "$baseUrl/download/final-fantasy-vi"
+                ),
                 RomItem("Chrono Trigger", "chrono_trigger.smc", "$baseUrl/download/chrono-trigger"),
-                RomItem("Super Mario Kart", "super_mario_kart.smc", "$baseUrl/download/super-mario-kart"),
-                RomItem("Street Fighter II", "street_fighter_ii.smc", "$baseUrl/download/street-fighter-ii")
+                RomItem(
+                    "Super Mario Kart",
+                    "super_mario_kart.smc",
+                    "$baseUrl/download/super-mario-kart"
+                ),
+                RomItem(
+                    "Street Fighter II",
+                    "street_fighter_ii.smc",
+                    "$baseUrl/download/street-fighter-ii"
+                )
             )
         }
     }
@@ -85,11 +133,15 @@ class RomRepository(private val context: Context) {
 
     private suspend fun extractMediaId(romPageUrl: String): String = withContext(Dispatchers.IO) {
         try {
-            val fullUrl = if (romPageUrl.startsWith("http")) romPageUrl else "https://www.romsgames.net$romPageUrl"
+            val fullUrl =
+                if (romPageUrl.startsWith("http")) romPageUrl else "https://www.romsgames.net$romPageUrl"
 
             val doc = Jsoup.connect(fullUrl)
                 .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36")
-                .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                .header(
+                    "Accept",
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"
+                )
                 .header("Accept-Language", "en-US,en;q=0.5")
                 .timeout(10000)
                 .get()
@@ -122,7 +174,8 @@ class RomRepository(private val context: Context) {
             }
 
             // Look for download button with data attributes
-            val downloadButton = doc.select("button[data-media-id], a[data-media-id], [data-media-id]").first()
+            val downloadButton =
+                doc.select("button[data-media-id], a[data-media-id], [data-media-id]").first()
             if (downloadButton != null) {
                 val mediaId = downloadButton.attr("data-media-id")
                 if (mediaId.isNotEmpty()) {
@@ -139,6 +192,7 @@ class RomRepository(private val context: Context) {
                 }
             }
 
+
             return@withContext ""
         } catch (e: Exception) {
             return@withContext ""
@@ -146,14 +200,47 @@ class RomRepository(private val context: Context) {
     }
 
 
-    suspend fun downloadRom(rom: RomItem): RomItem = withContext(Dispatchers.IO) {
+    private suspend fun cacheGameImagePersistently(
+        context: Context,
+        url: String,
+        gameId: String
+    ): String? = withContext(Dispatchers.IO) {
+        try {
+            val request = ImageRequest.Builder(context)
+                .data(url)
+                .allowHardware(false)
+                .build()
+
+            val result = ImageLoader(context).execute(request)
+            val drawable = result.drawable as? BitmapDrawable ?: return@withContext null
+            val bitmap = drawable.bitmap
+
+            val imageDir = File(context.getExternalFilesDir("images"), "")
+            imageDir.mkdirs()
+
+            val imageFile = File(imageDir, "$gameId.png")
+            FileOutputStream(imageFile).use {
+                bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+            }
+
+            return@withContext imageFile.absolutePath
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    override suspend fun downloadRom(rom: RomItem): RomItem = withContext(Dispatchers.IO) {
         try {
             if (rom.mediaId.isEmpty()) {
                 throw Exception("Media ID not found for ${rom.name}")
             }
 
             // Prepare external roms directory
-            val romsDir = File(context.getExternalFilesDir("roms")?.absolutePath ?: throw Exception("External storage unavailable"))
+            val romsDir = File(
+                context.getExternalFilesDir("roms")?.absolutePath
+                    ?: throw Exception("External storage unavailable")
+            )
             if (!romsDir.exists()) romsDir.mkdirs()
 
             // Step 1: POST to get download JSON
@@ -161,7 +248,10 @@ class RomRepository(private val context: Context) {
             val jsonConnection = (URL(jsonUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 setRequestProperty("User-Agent", "Mozilla/5.0")
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                setRequestProperty(
+                    "Content-Type",
+                    "application/x-www-form-urlencoded; charset=UTF-8"
+                )
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("X-Requested-With", "XMLHttpRequest")
                 setRequestProperty("Referer", rom.downloadUrl)
@@ -178,7 +268,8 @@ class RomRepository(private val context: Context) {
             val json = JSONObject(jsonResponse)
 
             val finalDownloadUrl = json.optString("downloadUrl")
-            val decodedFilename = URLDecoder.decode(json.optString("downloadName", rom.filename), "UTF-8")
+            val decodedFilename =
+                URLDecoder.decode(json.optString("downloadName", rom.filename), "UTF-8")
 
             if (finalDownloadUrl.isBlank()) {
                 throw Exception("downloadUrl missing in JSON response")
@@ -203,6 +294,11 @@ class RomRepository(private val context: Context) {
             // Step 4: Delete the ZIP after extraction
             zipFile.delete()
 
+
+            cacheGameImagePersistently(context, rom.imageUrl, rom.name)
+
+
+
             // Step 5: Return updated RomItem with the extracted ROM filename
             rom.copy(
                 downloadFileName = extractedRomFile.name,
@@ -218,7 +314,7 @@ class RomRepository(private val context: Context) {
     }
 
     // Helper unzip function (same as before)
-    fun unzipFirstRomFile(zipFile: File, outputDir: File): File? {
+    private fun unzipFirstRomFile(zipFile: File, outputDir: File): File? {
         ZipInputStream(zipFile.inputStream()).use { zipIn ->
             var entry = zipIn.nextEntry
             while (entry != null) {
@@ -236,22 +332,11 @@ class RomRepository(private val context: Context) {
         return null
     }
 
-    fun deleteRom(filename: String) {
+    override suspend fun deleteRom(filename: String) {
         val file = File(romsDir, filename)
         if (file.exists()) {
             file.delete()
         }
     }
 
-    fun isRomDownloaded(filename: String): Boolean {
-        return File(romsDir, filename).exists()
-    }
-
-    fun isRomFavorite(filename: String): Boolean {
-        return prefs.getBoolean("fav_$filename", false)
-    }
-
-    fun setRomFavorite(filename: String, isFavorite: Boolean) {
-        prefs.edit().putBoolean("fav_$filename", isFavorite).apply()
-    }
 }
