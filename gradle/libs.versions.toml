@@ -1,6 +1,9 @@
 [versions]
 agp = "8.12.0-alpha06"
 coilCompose = "2.7.0"
+customQrGenerator = "1.0.1"
+hiltAndroid = "2.56.2"
+hiltAndroidCompiler = "2.56.2"
 iconsLucide = "1.1.0"
 jsoup = "1.21.1"
 kotlin = "2.0.21"
@@ -37,6 +40,9 @@ androidx-tv-material = { group = "androidx.tv", name = "tv-material", version.re
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycleRuntimeKtx" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coilCompose" }
+custom-qr-generator = { module = "io.github.alexzhirkevich:qrose", version.ref = "customQrGenerator" }
+hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "hiltAndroid" }
+hilt-android-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "hiltAndroidCompiler" }
 icons-lucide = { module = "com.composables:icons-lucide", version.ref = "iconsLucide" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 

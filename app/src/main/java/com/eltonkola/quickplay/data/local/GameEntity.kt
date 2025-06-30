@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "games")
 data class GameEntity(
-    @PrimaryKey val id: Int,
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
     val imageUrl: String,
     val filename: String?,

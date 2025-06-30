@@ -6,6 +6,7 @@ import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import coil.ImageLoader
 import coil.request.ImageRequest
+import com.eltonkola.quickplay.data.RemoteItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -17,21 +18,21 @@ import java.net.URL
 import java.net.URLDecoder
 import java.util.zip.ZipInputStream
 
-data class RomItem(
-    val name: String,
-    val filename: String,
-    val downloadUrl: String,
-    val mediaId: String = "",
-    val isDownloaded: Boolean = false,
-    val imageUrl: String = "",
-    val downloadFileName: String = "",
-    val isFavorite: Boolean = false
-)
+//data class RomItem(
+//    val name: String,
+//    val filename: String,
+//    val downloadUrl: String,
+//    val mediaId: String = "",
+//    val isDownloaded: Boolean = false,
+//    val imageUrl: String = "",
+//    val downloadFileName: String = "",
+//    val isFavorite: Boolean = false
+//)
 
 
 interface RomRepository{
-    suspend fun fetchRomsFromWebsite(): List<RomItem>
-    suspend fun downloadRom(rom: RomItem): RomItem
+    suspend fun fetchRomsFromWebsite(): List<RemoteItem>
+    suspend fun downloadRom(rom: RemoteItem): RemoteItem
     suspend fun deleteRom(filename: String)
 }
 
@@ -45,7 +46,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
         }
     }
 
-    override suspend fun fetchRomsFromWebsite(): List<RomItem> = withContext(Dispatchers.IO) {
+    override suspend fun fetchRomsFromWebsite(): List<RemoteItem> = withContext(Dispatchers.IO) {
         val baseUrl = "https://www.romsgames.net"
         val url = "$baseUrl/roms/super-nintendo/"
 
@@ -78,7 +79,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
 
 
 
-                    RomItem(
+                    RemoteItem(
                         name = name,
                         filename = filename,
                         downloadUrl = downloadUrl,
@@ -94,34 +95,34 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
         } catch (e: Exception) {
             // Fallback with sample data for development
             listOf(
-                RomItem(
+                RemoteItem(
                     "Super Mario World",
                     "super_mario_world.smc",
                     "$baseUrl/download/super-mario-world"
                 ),
-                RomItem(
+                RemoteItem(
                     "The Legend of Zelda: A Link to the Past",
                     "zelda_link_to_past.smc",
                     "$baseUrl/download/zelda-link-past"
                 ),
-                RomItem("Super Metroid", "super_metroid.smc", "$baseUrl/download/super-metroid"),
-                RomItem(
+                RemoteItem("Super Metroid", "super_metroid.smc", "$baseUrl/download/super-metroid"),
+                RemoteItem(
                     "Donkey Kong Country",
                     "donkey_kong_country.smc",
                     "$baseUrl/download/donkey-kong-country"
                 ),
-                RomItem(
+                RemoteItem(
                     "Final Fantasy VI",
                     "final_fantasy_vi.smc",
                     "$baseUrl/download/final-fantasy-vi"
                 ),
-                RomItem("Chrono Trigger", "chrono_trigger.smc", "$baseUrl/download/chrono-trigger"),
-                RomItem(
+                RemoteItem("Chrono Trigger", "chrono_trigger.smc", "$baseUrl/download/chrono-trigger"),
+                RemoteItem(
                     "Super Mario Kart",
                     "super_mario_kart.smc",
                     "$baseUrl/download/super-mario-kart"
                 ),
-                RomItem(
+                RemoteItem(
                     "Street Fighter II",
                     "street_fighter_ii.smc",
                     "$baseUrl/download/street-fighter-ii"
@@ -230,7 +231,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
         }
     }
 
-    override suspend fun downloadRom(rom: RomItem): RomItem = withContext(Dispatchers.IO) {
+    override suspend fun downloadRom(rom: RemoteItem): RemoteItem = withContext(Dispatchers.IO) {
         try {
             if (rom.mediaId.isEmpty()) {
                 throw Exception("Media ID not found for ${rom.name}")

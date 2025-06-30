@@ -1,16 +1,24 @@
 package com.eltonkola.quickplay.ui
 
+import android.R.attr.label
+import android.R.attr.onClick
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,631 +27,914 @@ import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.tv.material3.ExperimentalTvMaterial3Api
 import coil.compose.AsyncImage
 import com.composables.icons.lucide.CheckCheck
+import com.composables.icons.lucide.CircleOff
 import com.composables.icons.lucide.CloudDownload
 import com.composables.icons.lucide.Gamepad
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.QrCode
+import com.composables.icons.lucide.Settings
 import com.composables.icons.lucide.Tv
+import com.eltonkola.quickplay.data.DownloadState
+import com.eltonkola.quickplay.data.RemoteItem
+import com.eltonkola.quickplay.data.local.GameDao
+import com.eltonkola.quickplay.data.local.GameEntity
+import com.eltonkola.quickplay.data.remote.RomRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import com.composables.icons.lucide.*
 
+
+@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun TvApp(
-    viewModel: TvAppViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    viewModel: TvAppViewModel = viewModel()
 ) {
-    val uiState by viewModel.uiState.collectAsState()
+        val selectedTab by viewModel.selectedTab.collectAsState()
+        val selectedItem by viewModel.selectedItem.collectAsState()
 
-    Row(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF0A0A0A))
-    ) {
-        // Left Navigation Panel
-        LeftNavigationPanel(
-            selectedTab = uiState.selectedTab,
-            onTabSelected = viewModel::selectTab
-        )
+        Row(modifier = Modifier.fillMaxSize()) {
+            // Persistent Navigation Drawer (Left Panel)
+            NavigationDrawer(
+                selectedTab = selectedTab,
+                onTabSelected = { viewModel.selectTab(it) },
+                modifier = Modifier.fillMaxHeight()
+            )
 
-        // Main Content Area
-        Box(
-            modifier = Modifier
-                .weight(if (uiState.showOptionsPanel) 0.6f else 1f)
-                .fillMaxHeight()
-                .background(Color(0xFF121212))
-        ) {
-            when (uiState.selectedTab) {
-                0 -> LocalLibraryContent(uiState, viewModel)
-                1 -> RemoteDownloadsContent(uiState, viewModel)
-                2 -> RemoteControlContent(uiState, viewModel)
-            }
-
-            if (uiState.isLoading) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(64.dp),
-                        strokeWidth = 6.dp
-                    )
+            // Center Content Panel
+            Box(modifier = Modifier.weight(1f)) {
+                when (selectedTab) {
+                    0 -> GamesPanel(viewModel)
+                    1 -> DownloadPanel(viewModel)
+                    2 -> ServerPanel(viewModel)
                 }
             }
         }
 
-        // Right Options Panel
-        AnimatedVisibility(
-            visible = uiState.showOptionsPanel,
-            enter = slideInHorizontally(initialOffsetX = { it }),
-            exit = slideOutHorizontally(targetOffsetX = { it })
-        ) {
-            RightOptionsPanel(uiState = uiState, viewModel = viewModel)
+        // Details Dialog - Shows when an item is selected
+        if (selectedItem != null) {
+            DetailsDialog(
+                item = selectedItem!!,
+                viewModel = viewModel,
+                onDismiss = { viewModel.closeDetails() }
+            )
         }
     }
-}
 
-
-@Composable
-fun LeftNavigationPanel(
-    selectedTab: Int,
-    onTabSelected: (Int) -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .width(280.dp)
-            .fillMaxHeight(),
-        color = Color(0xFF1A1A1A),
-        shadowElevation = 8.dp
+    // Navigation Drawer with Lucide icons
+    @OptIn(ExperimentalTvMaterial3Api::class, ExperimentalMaterial3Api::class)
+    @Composable
+    fun NavigationDrawer(
+        selectedTab: Int,
+        onTabSelected: (Int) -> Unit,
+        modifier: Modifier = Modifier
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize()
+        val tabTitles = listOf("Games Library", "Download Center", "Web Server")
+        val icons = listOf(
+            Lucide.Gamepad2,
+            Lucide.Download,
+            Lucide.Server
+        )
+
+        Surface(
+            modifier = modifier.width(280.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh
         ) {
-            // App Header
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color(0xFF2A2A2A)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(vertical = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // Header with Lucide icon
                 Row(
-                    modifier = Modifier.padding(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        Lucide.Tv,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(32.dp)
+                        imageVector = Lucide.Star,
+                        contentDescription = "App Icon",
+                        modifier = Modifier.size(48.dp),
+                        tint = MaterialTheme.colorScheme.primary
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        "Media Center",
-                        style = MaterialTheme.typography.headlineSmall.copy(
-                            fontWeight = FontWeight.Bold
-                        ),
-                        color = Color.White
+                        "Retro Console",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                Divider(
+                    color = MaterialTheme.colorScheme.outlineVariant,
+                    thickness = 1.dp,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
+                // Navigation Items with Lucide icons
+                tabTitles.forEachIndexed { index, title ->
+                    NavigationDrawerItem(
+                        label = { Text(title) },
+                        icon = { Icon(
+                            icons[index],
+                            contentDescription = null,
+                        )} ,
+                        selected = selectedTab == index,
+                        onClick = { onTabSelected(index) }
+                    )
+                }
+
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Footer
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 16.dp)
+                ) {
+                    Text(
+                        "Settings",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .clickable { /* Open settings */ }
+                            .padding(vertical = 12.dp)
+                    )
+                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(
+                        "v1.0.0",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 16.dp)
                     )
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Navigation Items
-            val navigationItems = listOf(
-                NavigationItem("My Library", Lucide.Gamepad),
-                NavigationItem("Downloads", Lucide.CloudDownload),
-                NavigationItem("Remote Control", Lucide.QrCode)
-            )
-
-            navigationItems.forEachIndexed { index, item ->
-                NavigationButton(
-                    item = item,
-                    isSelected = selectedTab == index,
-                    onClick = { onTabSelected(index) }
-                )
-            }
         }
     }
-}
 
-data class NavigationItem(
-    val title: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-)
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun NavigationButton(
-    item: NavigationItem,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .onFocusChanged { isFocused = it.isFocused },
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isSelected -> MaterialTheme.colorScheme.primary
-                isFocused -> Color(0xFF2A2A2A)
-                else -> Color.Transparent
-            }
-        ),
-        border = if (isFocused && !isSelected) BorderStroke(2.dp, Color.White) else null
+    // Details Dialog with Lucide icons
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    @Composable
+    fun DetailsDialog(
+        item: Any,
+        viewModel: TvAppViewModel,
+        onDismiss: () -> Unit
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Dialog(
+            onDismissRequest = onDismiss,
+            properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            Icon(
-                item.icon,
-                contentDescription = null,
-                modifier = Modifier.size(24.dp),
-                tint = Color.White
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                item.title,
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                ),
-                color = Color.White
-            )
-        }
-    }
-}
-
-@Composable
-fun LocalLibraryContent(
-    uiState: TvAppUiState,
-    viewModel: TvAppViewModel
-) {
-    val sortedItems = remember(uiState.localItems) {
-        uiState.localItems.sortedByDescending { it.isFavorite }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Text(
-            "My Library",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        // Favorites Row
-        val favoriteItems = sortedItems.filter { it.isFavorite }
-        if (favoriteItems.isNotEmpty()) {
-            Text(
-                "Favorites",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.SemiBold
-                ),
-                color = Color.White,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
-
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(bottom = 24.dp)
+            Card(
+                modifier = Modifier
+                    .width(700.dp)
+                    .heightIn(min = 400.dp, max = 800.dp),
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
             ) {
-                items(favoriteItems) { item ->
-                    MediaCard(
-                        title = item.name,
-                        imageUrl = item.imageUrl,
-                        isFavorite = item.isFavorite,
-                        onClick = { viewModel.selectLocalItem(item) }
-                    )
-                }
-            }
-        }
-
-        // All Items Grid
-        Text(
-            "All Videos",
-            style = MaterialTheme.typography.titleLarge.copy(
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 12.dp)
-        )
-
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 200.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(sortedItems) { item ->
-                MediaCard(
-                    title = item.name,
-                    imageUrl = item.imageUrl,
-                    isFavorite = item.isFavorite,
-                    onClick = { viewModel.selectLocalItem(item) }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun RemoteDownloadsContent(
-    uiState: TvAppUiState,
-    viewModel: TvAppViewModel
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp)
-    ) {
-        Text(
-            "Available Downloads",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold
-            ),
-            color = Color.White,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 200.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            items(uiState.remoteItems) { item ->
-                val downloadState = uiState.downloadStates[item.filename]
-                RemoteMediaCard(
-                    title = item.name,
-                    imageUrl = item.imageUrl,
-                    isDownloaded = item.isDownloaded,
-                    isDownloading = downloadState?.isDownloading ?: false,
-                    progress = downloadState?.progress ?: 0f,
-                    onClick = {
-                        if (!item.isDownloaded && downloadState?.isDownloading != true) {
-                            viewModel.downloadRemoteItem(item)
-                        } else {
-                            viewModel.selectRemoteItem(item)
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Header with Lucide close icon
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "Details",
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(48.dp)
+                                .background(
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                    shape = CircleShape
+                                )
+                        ) {
+                            Icon(
+                                imageVector = Lucide.X,
+                                contentDescription = "Close",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
+
+                    Divider(
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        thickness = 1.dp
+                    )
+
+                    // Content
+                    when (item) {
+                        is GameEntity -> GameDetails(game = item, viewModel = viewModel, onDismiss = onDismiss)
+                        is RemoteItem -> DownloadDetails(item = item, viewModel = viewModel, onDismiss = onDismiss)
+                    }
+                }
+            }
+        }
+    }
+
+    // Game Details with Lucide icons
+    @Composable
+    fun GameDetails(
+        game: GameEntity,
+        viewModel: TvAppViewModel,
+        onDismiss: () -> Unit
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Landscape image
+            AsyncImage(
+                model = game.imageUrl,
+                contentDescription = game.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(MaterialTheme.shapes.large),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    game.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    "ID: ${game.id}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Divider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            // Action Buttons as vertical list with Lucide icons
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Play action
+                ActionListItem(
+                    icon = Lucide.Play,
+                    title = "Play Game",
+                    description = "Launch this game now",
+                    onClick = {
+                        viewModel.launchGame(game)
+                        onDismiss()
+                    }
+                )
+
+                // Favorite action
+                ActionListItem(
+                    icon = if (game.isFavorite) Lucide.Heart else Lucide.HeartOff,
+                    title = if (game.isFavorite) "Remove from Favorites" else "Add to Favorites",
+                    description = if (game.isFavorite) "Remove from your favorites list" else "Add to your favorites list",
+                    onClick = {
+                        viewModel.toggleFavorite(game)
+                    }
+                )
+
+                // Delete action
+                ActionListItem(
+                    icon = Lucide.Trash2,
+                    title = "Delete Game",
+                    description = "Remove this game from your device",
+                    onClick = {
+                        viewModel.deleteGame(game)
+                        onDismiss()
+                    },
+                    containerColor = MaterialTheme.colorScheme.errorContainer
                 )
             }
         }
     }
-}
 
-@Composable
-fun RemoteControlContent(
-    uiState: TvAppUiState,
-    viewModel: TvAppViewModel
-) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+    // Download Details with Lucide icons
+    @Composable
+    fun DownloadDetails(
+        item: RemoteItem,
+        viewModel: TvAppViewModel,
+        onDismiss: () -> Unit
     ) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth(0.8f)
-                .padding(24.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = Color(0xFF1A1A1A)
-            )
+        val downloadState = viewModel.downloadStates.value[item.downloadUrl] ?: DownloadState()
+
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(48.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            // Landscape image
+            AsyncImage(
+                model = item.imageUrl,
+                contentDescription = item.name,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(16f / 9f)
+                    .clip(MaterialTheme.shapes.large),
+                contentScale = ContentScale.Crop
+            )
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    "Remote Control",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold
-                    ),
-                    color = Color.White
+                    item.name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
                 )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                TvToggleButton(
-                    text = "Enable Remote Website",
-                    isChecked = uiState.isWebsiteActive,
-                    onToggle = { viewModel.toggleWebsite() }
+                Text(
+                    "Id: ${item.mediaId ?: "Unknown"}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
 
-                if (uiState.isWebsiteActive) {
-                    Spacer(modifier = Modifier.height(48.dp))
+            Divider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    Card(
-                        modifier = Modifier.size(200.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.White)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
+            // Status information
+            when {
+                downloadState.isDownloading -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            "Download in progress",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        LinearProgressIndicator(
+                            progress = { downloadState.progress },
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            "${(downloadState.progress * 100).toInt()}% completed",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
+                item.isDownloaded -> {
+                    Text(
+                        "✓ Downloaded",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                else -> {
+                    Text(
+                        "Available",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Action Buttons as vertical list with Lucide icons
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                if (!item.isDownloaded && !downloadState.isDownloading) {
+                    ActionListItem(
+                        icon = Lucide.Download,
+                        title = "Download Now",
+                        description = "Download to your device",
+                        onClick = { viewModel.downloadRom(item) }
+                    )
+                }
+
+                if (item.isDownloaded) {
+                    ActionListItem(
+                        icon = Lucide.Play,
+                        title = "Launch Game",
+                        description = "Play this game now",
+                        onClick = {
+                            viewModel.launchGame(item)
+                            onDismiss()
+                        }
+                    )
+                }
+
+                if (item.isDownloaded || downloadState.isDownloading) {
+                    ActionListItem(
+                        icon = Lucide.Trash2,
+                        title = if (downloadState.isDownloading) "Cancel Download" else "Delete Download",
+                        description = "Remove this item from your device",
+                        onClick = {
+                            viewModel.deleteDownload(item)
+                            onDismiss()
+                        },
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                }
+            }
+        }
+    }
+
+    // Action List Item with Lucide icons
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    @Composable
+    fun ActionListItem(
+        icon: ImageVector,
+        title: String,
+        description: String,
+        onClick: () -> Unit,
+        containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest
+    ) {
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = MaterialTheme.shapes.medium,
+            color = containerColor
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = title,
+                    modifier = Modifier.size(32.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.width(24.dp))
+                Column {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Text(
+                        text = description,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(
+                    imageVector = Lucide.ChevronRight,
+                    contentDescription = "Action",
+                    modifier = Modifier.size(24.dp),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+
+    // Games Panel with Lucide icons
+    @Composable
+    fun GamesPanel(viewModel: TvAppViewModel) {
+        val favorites by viewModel.favoriteGames.collectAsState()
+        val nonFavorites by viewModel.nonFavoriteGames.collectAsState()
+        val hasGames = favorites.isNotEmpty() || nonFavorites.isNotEmpty()
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (!hasGames) {
+                EmptyState(
+                    icon = Lucide.Gamepad2,
+                    title = "Your Game Library is Empty",
+                    description = "Visit the Download Center to add games to your collection",
+                    actionText = "Go to Download Center",
+                    onAction = { viewModel.selectTab(1) }
+                )
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    if (favorites.isNotEmpty()) {
+                        Text(
+                            "Favorites",
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        // 6-column grid for favorites
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(6),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp)
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    Lucide.QrCode,
-                                    contentDescription = "QR Code",
-                                    modifier = Modifier.size(120.dp),
-                                    tint = Color.Black
-                                )
-                                Text(
-                                    uiState.barcodeData,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = Color.Black
+                            items(favorites) { game ->
+                                LandscapeGameCard(
+                                    game = game,
+                                    onClick = { viewModel.selectItem(game) }
                                 )
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(
-                            containerColor = Color(0xFF2A2A2A)
-                        )
-                    ) {
+                    if (nonFavorites.isNotEmpty()) {
                         Text(
-                            text = uiState.websiteUrl,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                color = MaterialTheme.colorScheme.primary
-                            ),
-                            modifier = Modifier.padding(24.dp),
-                            textAlign = TextAlign.Center
+                            "All Games",
+                            style = MaterialTheme.typography.headlineMedium,
+                            modifier = Modifier
+                                .padding(top = 32.dp, bottom = 16.dp)
+                        )
+
+                        // 6-column grid for all games
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(6),
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(24.dp),
+                            horizontalArrangement = Arrangement.spacedBy(24.dp)
+                        ) {
+                            items(nonFavorites) { game ->
+                                LandscapeGameCard(
+                                    game = game,
+                                    onClick = { viewModel.selectItem(game) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Landscape Game Card with Lucide icons
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    @Composable
+    fun LandscapeGameCard(
+        game: GameEntity,
+        onClick: () -> Unit,
+        modifier: Modifier = Modifier
+    ) {
+        Card(
+            modifier = modifier
+                .width(220.dp)
+                .clickable { onClick() },
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+//            border = CardDefaults.border(
+//                focusedBorder = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+//                unfocusedBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+//            )
+        ) {
+            Column {
+                // Landscape image (16:9 aspect ratio)
+                AsyncImage(
+                    model = game.imageUrl,
+                    contentDescription = game.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(MaterialTheme.shapes.large),
+                    contentScale = ContentScale.Crop
+                )
+
+                // Game title and favorite indicator with Lucide icon
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = game.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (game.isFavorite) {
+                        Icon(
+                            imageVector = Lucide.Star,
+                            contentDescription = "Favorite",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(20.dp)
                         )
                     }
                 }
             }
         }
     }
-}
 
+    // Download Panel with Lucide icons
+    @Composable
+    fun DownloadPanel(viewModel: TvAppViewModel) {
+        val remoteItems by viewModel.remoteItems.collectAsState()
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun MediaCard(
-    title: String,
-    imageUrl: String,
-    isFavorite: Boolean,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .width(200.dp)
-            .height(140.dp)
-            .onFocusChanged { isFocused = it.isFocused }
-            .scale(if (isFocused) 1.05f else 1f),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A1A1A)
-        ),
-        border = if (isFocused) BorderStroke(3.dp, Color.White) else null,
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 12.dp else 4.dp
-        )
-    ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.7f)
-                            )
-                        )
-                    )
-            )
-
-            if (isFavorite) {
-                Icon(
-                    Icons.Default.Favorite,
-                    contentDescription = "Favorite",
-                    tint = Color(0xFFE91E63),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(16.dp)
+            if (remoteItems.isEmpty()) {
+                EmptyState(
+                    icon = Lucide.CloudOff,
+                    title = "No Content Available",
+                    description = "Unable to fetch download items. Check your connection and try again",
+                    actionText = "Retry",
+                    onAction = { viewModel.refreshRemoteItems() }
                 )
-            }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        "Available Downloads",
+                        style = MaterialTheme.typography.headlineMedium,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
 
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium
-                ),
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp)
-            )
+                    // 6-column grid
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(6),
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
+                    ) {
+                        items(remoteItems) { item ->
+                            LandscapeDownloadCard(
+                                item = item,
+                                downloadState = viewModel.downloadStates.value[item.downloadUrl] ?: DownloadState(),
+                                onClick = { viewModel.selectItem(item) }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
-}
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun RemoteMediaCard(
-    title: String,
-    imageUrl: String,
-    isDownloaded: Boolean,
-    isDownloading: Boolean,
-    progress: Float,
-    onClick: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .width(200.dp)
-            .height(140.dp)
-            .onFocusChanged { isFocused = it.isFocused }
-            .scale(if (isFocused) 1.05f else 1f),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFF1A1A1A)
-        ),
-        border = if (isFocused) BorderStroke(3.dp, Color.White) else null,
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isFocused) 12.dp else 4.dp
-        )
+    // Landscape Download Card with Lucide icons
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    @Composable
+    fun LandscapeDownloadCard(
+        item: RemoteItem,
+        downloadState: DownloadState,
+        onClick: () -> Unit
     ) {
-        Box(modifier = Modifier.fillMaxSize()) {
-            AsyncImage(
-                model = imageUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.7f)
-                            )
-                        )
-                    )
-            )
-
-            if (isDownloaded) {
-                Icon(
-                    Lucide.CheckCheck,
-                    contentDescription = "Downloaded",
-                    tint = Color(0xFFE91E63),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(16.dp)
-                )
-            } else if(isDownloading){
-                CircularProgressIndicator(
-                    progress = {
-                        progress
-                    },
-                    color = ProgressIndicatorDefaults.circularColor,
-                    strokeWidth = ProgressIndicatorDefaults.CircularStrokeWidth,
-                    trackColor = ProgressIndicatorDefaults.circularIndeterminateTrackColor,
-                    strokeCap = ProgressIndicatorDefaults.CircularDeterminateStrokeCap,
-                )
-            }else{
-                Icon(
-                    Lucide.CloudDownload,
-                    contentDescription = "Download",
-                    tint = Color(0xFFE91E63),
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(16.dp)
-                )
-            }
-
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium
-                ),
-                color = Color.White,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(12.dp)
-            )
-        }
-
-    }
-}
-
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun TvToggleButton(
-    text: String,
-    isChecked: Boolean,
-    onToggle: () -> Unit
-) {
-    var isFocused by remember { mutableStateOf(false) }
-
-    Card(
-        onClick = onToggle,
-        modifier = Modifier
-            .fillMaxWidth()
-            .onFocusChanged { isFocused = it.isFocused }
-            .scale(if (isFocused) 1.02f else 1f),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isFocused) Color(0xFF2A2A2A) else Color(0xFF1A1A1A)
-        ),
-        border = if (isFocused) BorderStroke(2.dp, Color.White) else null
-    ) {
-        Row(
+        Card(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .width(220.dp)
+                .clickable { onClick() },
+            shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+//            border = CardDefaults.border(
+//                focusedBorder = BorderStroke(4.dp, MaterialTheme.colorScheme.primary),
+//                unfocusedBorder = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+//            )
         ) {
-            Text(
-                text,
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Medium
-                ),
-                color = Color.White
-            )
+            Column {
+                // Landscape image (16:9 aspect ratio)
+                AsyncImage(
+                    model = item.imageUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(16f / 9f)
+                        .clip(MaterialTheme.shapes.large),
+                    contentScale = ContentScale.Crop
+                )
 
-            Switch(
-                checked = isChecked,
-                onCheckedChange = { onToggle() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
-                    checkedTrackColor = MaterialTheme.colorScheme.primary,
-                    uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.DarkGray
-                ),
-                modifier = Modifier.scale(1.2f)
-            )
+                // Item title and status with Lucide-inspired indicators
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = item.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    when {
+                        downloadState.isDownloading -> {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Lucide.Download,
+                                    contentDescription = "Downloading",
+                                    modifier = Modifier.size(16.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                LinearProgressIndicator(
+                                    progress = { downloadState.progress },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(6.dp),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "${(downloadState.progress * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        item.isDownloaded -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Lucide.CheckCheck,
+                                contentDescription = "Downloaded",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Downloaded",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                        else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Lucide.Cloud,
+                                contentDescription = "Available",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Available",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
-}
 
+    // Server Panel with Lucide icons
+    @Composable
+    fun ServerPanel(viewModel: TvAppViewModel) {
+        val isServerOn by viewModel.isServerOn.collectAsState()
+        val serverUrl by viewModel.serverUrl.collectAsState()
 
-@Composable
-fun RightOptionsPanel(viewModel: TvAppViewModel, uiState: TvAppUiState) {
-    Text("TODO")
-}
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(48.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Server Status Card with Lucide icon
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth(0.7f)
+                        .padding(24.dp),
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Icon(
+                            imageVector = Lucide.Server,
+                            contentDescription = "Server",
+                            modifier = Modifier.size(64.dp),
+                            tint = if (isServerOn) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        Text(
+                            text = if (isServerOn) "Web Server: ACTIVE" else "Web Server: INACTIVE",
+                            style = MaterialTheme.typography.headlineLarge,
+                            color = if (isServerOn) MaterialTheme.colorScheme.primary
+                            else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Switch(
+                            checked = isServerOn,
+                            onCheckedChange = { viewModel.toggleServer(it) },
+                            modifier = Modifier.padding(16.dp)
+                        )
+
+                        if (isServerOn && !serverUrl.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(32.dp))
+
+                            // QR Code Placeholder
+                            Box(
+                                modifier = Modifier
+                                    .size(250.dp)
+                                    .background(Color.White, MaterialTheme.shapes.large)
+                                    .border(2.dp, Color.Black, MaterialTheme.shapes.large)
+                            ) {
+                                Text(
+                                    "QR CODE",
+                                    modifier = Modifier.align(Alignment.Center),
+                                    color = Color.Black
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Text(
+                                text = "Scan to connect:",
+                                style = MaterialTheme.typography.titleLarge
+                            )
+
+                            Text(
+                                text = serverUrl ?: "",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(16.dp),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Empty State Component with Lucide icons
+    @Composable
+    fun EmptyState(
+        icon: ImageVector,
+        title: String,
+        description: String,
+        actionText: String? = null,
+        onAction: (() -> Unit)? = null,
+        modifier: Modifier = Modifier
+    ) {
+        Column(
+            modifier = modifier.padding(48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                modifier = Modifier.size(120.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineLarge,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.titleMedium,
+                textAlign = TextAlign.Center,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 48.dp)
+            )
+
+            if (actionText != null && onAction != null) {
+                Spacer(modifier = Modifier.height(32.dp))
+                Button(
+                    onClick = onAction,
+                    shape = MaterialTheme.shapes.large,
+                    modifier = Modifier.width(300.dp).height(60.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Text(actionText, style = MaterialTheme.typography.titleLarge)
+                }
+            }
+        }
+    }

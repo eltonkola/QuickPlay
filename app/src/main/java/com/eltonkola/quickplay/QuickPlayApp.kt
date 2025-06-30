@@ -4,6 +4,8 @@ import android.app.Application
 import androidx.room.Room
 import com.eltonkola.quickplay.data.local.AppDatabase
 import com.eltonkola.quickplay.data.local.GameDao
+import com.eltonkola.quickplay.data.remote.RomRepository
+import com.eltonkola.quickplay.data.remote.RomRepositoryImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,6 +37,14 @@ object AppModule {
     fun provideGameDao(db: AppDatabase): GameDao {
         return db.gameDao()
     }
+
+    @Provides
+    @Singleton
+    fun provideRomRepository(app: Application): RomRepository {
+        return RomRepositoryImpl(app)
+    }
+
+
 
 
 }
