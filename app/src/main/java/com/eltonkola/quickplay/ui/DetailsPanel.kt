@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -18,6 +17,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -25,20 +26,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.composables.icons.lucide.ChevronRight
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.Heart
@@ -132,22 +133,19 @@ fun GameDetails(
     game: GameEntity,
     viewModel: TvAppViewModel,
 ) {
+
+    val playFocusRequester = remember { FocusRequester() }
+
+    // Defer focus request until layout is done
+    LaunchedEffect(Unit) {
+        playFocusRequester.requestFocus()
+    }
+
+
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Smaller image (4:3 aspect ratio)
-        if(game.imageUrl.isNotEmpty()) {
-            AsyncImage(
-                model = game.imageUrl,
-                contentDescription = game.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
-                    .clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Crop
-            )
-        }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -162,7 +160,11 @@ fun GameDetails(
             )
         }
 
-        Divider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            Modifier,
+            DividerDefaults.Thickness,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
 
         // Action Buttons as vertical list
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -171,7 +173,8 @@ fun GameDetails(
                 icon = Lucide.Play,
                 title = "Play Game",
                 description = "Launch this game now",
-                onClick = { viewModel.launchGame(game.filename?: game.name) }
+                onClick = { viewModel.launchGame(game.filename?: game.name) },
+                focusRequester = playFocusRequester
             )
 
             // Favorite action
@@ -181,7 +184,7 @@ fun GameDetails(
                 description = if (game.isFavorite) "Remove from favorites" else "Add to favorites",
                 onClick = {
                     viewModel.toggleFavorite(game)
-                }
+                },
             )
 
             // Delete action
@@ -192,7 +195,7 @@ fun GameDetails(
                 onClick = {
                     viewModel.deleteGame(game)
                 },
-                containerColor = MaterialTheme.colorScheme.errorContainer
+                containerColor = MaterialTheme.colorScheme.errorContainer,
             )
         }
     }
@@ -205,23 +208,19 @@ fun DownloadDetails(
     viewModel: TvAppViewModel
 ) {
     val downloadState = viewModel.downloadStates.value[item.downloadUrl] ?: DownloadState()
+    val playFocusRequester = remember { FocusRequester() }
+
+    // Defer focus request until layout is done
+    LaunchedEffect(Unit) {
+        playFocusRequester.requestFocus()
+    }
+
+
 
     Column(
         modifier = Modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Smaller image (4:3 aspect ratio)
-        if(item.imageUrl.isNotEmpty()) {
-            AsyncImage(
-                model = item.imageUrl,
-                contentDescription = item.name,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
-                    .clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Crop
-            )
-        }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -236,7 +235,11 @@ fun DownloadDetails(
             )
         }
 
-        Divider(color = MaterialTheme.colorScheme.outlineVariant)
+        HorizontalDivider(
+            Modifier,
+            DividerDefaults.Thickness,
+            color = MaterialTheme.colorScheme.outlineVariant
+        )
 
         // Status information
         when {
@@ -281,7 +284,8 @@ fun DownloadDetails(
                     icon = Lucide.Download,
                     title = "Download Now",
                     description = "Download to your device",
-                    onClick = { viewModel.downloadRom(item) }
+                    onClick = { viewModel.downloadRom(item) },
+                    focusRequester = playFocusRequester,
                 )
             }
 
@@ -304,7 +308,7 @@ fun DownloadDetails(
                     onClick = {
                         viewModel.deleteDownload(item)
                     },
-                    containerColor = MaterialTheme.colorScheme.errorContainer
+                    containerColor = MaterialTheme.colorScheme.errorContainer,
                 )
             }
         }
@@ -318,7 +322,8 @@ fun ActionListItem(
     title: String,
     description: String,
     onClick: () -> Unit,
-    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    focusRequester: FocusRequester = remember { FocusRequester() }
 ) {
     var isFocused by remember { mutableStateOf(false) }
 
@@ -332,7 +337,9 @@ fun ActionListItem(
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
-            .onFocusChanged { isFocused = it.isFocused },
+            .onFocusChanged { isFocused = it.isFocused }
+            .focusRequester(focusRequester)
+        ,
         shape = MaterialTheme.shapes.medium,
         color = backgroundColor
     ) {
@@ -368,5 +375,7 @@ fun ActionListItem(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+
+
     }
 }
