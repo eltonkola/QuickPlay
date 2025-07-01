@@ -1,10 +1,12 @@
 package com.eltonkola.quickplay.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,12 +24,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.composables.icons.lucide.Download
 import com.composables.icons.lucide.Gamepad
 import com.composables.icons.lucide.Gamepad2
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Server
+import com.eltonkola.quickplay.R
 
 
 // Navigation Drawer Implementation
@@ -52,28 +56,16 @@ fun NavigationDrawer(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Lucide.Gamepad,
-                    contentDescription = "App Icon",
-                    modifier = Modifier.size(48.dp),
-                    tint = MaterialTheme.colorScheme.primary
+
+                Image(
+                    painter = painterResource(R.drawable.tv_banner),
+                    contentDescription = "App Logo",
+                    modifier = Modifier.fillMaxWidth().aspectRatio(3.2f)
                 )
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    "Quick Play",
-                    style = MaterialTheme.typography.headlineLarge,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
 
             Divider(
                 color = MaterialTheme.colorScheme.outlineVariant,

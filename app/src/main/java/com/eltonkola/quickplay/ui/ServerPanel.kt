@@ -3,6 +3,7 @@ package com.eltonkola.quickplay.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -15,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Server
+import com.composables.icons.lucide.ServerCog
 import com.eltonkola.quickplay.ui.elements.QrUrl
 
 @Composable
@@ -23,21 +25,24 @@ fun ServerPanel(viewModel: TvAppViewModel) {
     val isRunning = serverState.running
     val ipAddress = serverState.ipAddress.orEmpty()
 
-    Column(
+    Row (
         modifier = Modifier
             .fillMaxWidth()
+    ){
+
+
+    Column(
+        modifier = Modifier
+            .weight(0.5f).fillMaxHeight()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
 
         Icon(
-            imageVector = Lucide.Server,
+            imageVector = Lucide.ServerCog,
             contentDescription = "Server",
             modifier = Modifier.size(72.dp),
-            tint = if (isRunning == true)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -52,10 +57,6 @@ fun ServerPanel(viewModel: TvAppViewModel) {
         Text(
             text = if (isRunning == true) "Status: ACTIVE" else "Status: INACTIVE",
             style = MaterialTheme.typography.bodyLarge,
-            color = if (isRunning == true)
-                MaterialTheme.colorScheme.primary
-            else
-                MaterialTheme.colorScheme.onSurfaceVariant
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -69,7 +70,7 @@ fun ServerPanel(viewModel: TvAppViewModel) {
                 Text(
                     text = if (isRunning) "Turn Off" else "Turn On",
                     modifier = Modifier.padding(end = 8.dp),
-                    style = MaterialTheme.typography.bodyLarge
+//                    style = MaterialTheme.typography.bodyLarge
                 )
                 Switch(
                     checked = isRunning,
@@ -77,43 +78,50 @@ fun ServerPanel(viewModel: TvAppViewModel) {
                 )
             }
         }
-
+    }
         Spacer(modifier = Modifier.height(32.dp))
 
-        if (isRunning == true && ipAddress.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .size(220.dp)
-                    .background(Color.White, MaterialTheme.shapes.medium)
-                    .border(2.dp, Color.Black, MaterialTheme.shapes.medium)
-            ) {
-                QrUrl("http://$ipAddress:${serverState.port}")
+        Column(
+            modifier = Modifier
+                .weight(0.5f)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            if (isRunning == true && ipAddress.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .size(220.dp)
+                        .background(Color.White, MaterialTheme.shapes.medium)
+                        .border(2.dp, Color.Black, MaterialTheme.shapes.medium)
+                ) {
+                    QrUrl("http://$ipAddress:${serverState.port}")
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "Scan this QR code to access the server",
+//                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Or open this address on another device:",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+
+                Text(
+                    text = "http://$ipAddress:${serverState.port}",
+//                    style = MaterialTheme.typography.bodyLarge.copy(
+//                        fontSize = 18.sp,
+//                        fontWeight = FontWeight.Medium,
+//                        color = MaterialTheme.colorScheme.primary
+//                    ),
+                    modifier = Modifier.padding(top = 8.dp)
+                )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "Scan this QR code to access the server",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Or open this address on another device:",
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text(
-                text = "http://$ipAddress:${serverState.port}",
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                ),
-                modifier = Modifier.padding(top = 8.dp)
-            )
         }
     }
 }

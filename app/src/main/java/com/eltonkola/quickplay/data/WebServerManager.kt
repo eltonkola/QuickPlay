@@ -65,17 +65,15 @@ class WebServerManager @Inject constructor(
                 }
 
                 private fun serveForm(): Response {
-                    return newFixedLengthResponse(
-                        Response.Status.OK, "text/html", """
-                        <html><body>
-                        <form method='post' enctype='multipart/form-data' action='/upload'>
-                            <input type='file' name='file'/>
-                            <input type='submit'/>
-                        </form>
-                        </body></html>
-                        """.trimIndent()
-                    )
+                    return try {
+                        val html = context.assets.open("web/index.html").bufferedReader().use { it.readText() }
+                        newFixedLengthResponse(Response.Status.OK, "text/html", html)
+                    } catch (e: Exception) {
+                        newFixedLengthResponse(Response.Status.INTERNAL_ERROR, "text/plain", "Error loading form")
+                    }
                 }
+
+
 
                 private fun handleUpload(session: IHTTPSession): Response {
                     return try {
@@ -97,7 +95,11 @@ class WebServerManager @Inject constructor(
 
 
                         if (!isValidExtension(originalFileName)) {
-                            return newFixedLengthResponse("Unsupported file type")
+                            return newFixedLengthResponse(
+                                Response.Status.BAD_REQUEST,
+                                "text/plain",
+                                "❌ Unsupported file type. Only .smc, .sfc, and .zip files are allowed"
+                            )
                         }
 
 
@@ -111,16 +113,27 @@ class WebServerManager @Inject constructor(
                         uploadedFile.copyTo(savedFile, overwrite = true)
 
                         val gameFile = if (originalFileName.endsWith(".zip", true)) {
-                            unzipFirstRomFile(savedFile, uploadDir) ?: return newFixedLengthResponse("No ROM in ZIP")
+                            unzipFirstRomFile(savedFile, uploadDir) ?: return newFixedLengthResponse(
+                                Response.Status.BAD_REQUEST,
+                                "text/plain",
+                                "❌ ZIP file doesn't contain any valid ROMs (.smc/.sfc)"
+                            )
                         } else savedFile
 
                         insertGame(gameFile)
-                        newFixedLengthResponse("Uploaded successfully  ${savedFile.name}")
 
-
+                        newFixedLengthResponse(
+                            "✅ Successfully added to your collection!\n" +
+                                    "File: ${savedFile.name}\n" +
+                                    "Ready to play in QuickPlay!"
+                        )
 
                     } catch (e: Exception) {
-                        newFixedLengthResponse("Error: ${e.message}")
+                        newFixedLengthResponse(
+                            Response.Status.INTERNAL_ERROR,
+                            "text/plain",
+                            "❌ Upload failed: ${e.message ?: "Unknown error"}"
+                        )
                     }
                 }
             }
