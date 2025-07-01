@@ -1,5 +1,6 @@
 package com.eltonkola.quickplay.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -53,7 +54,7 @@ fun EmptyState(
             style = MaterialTheme.typography.headlineLarge,
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+//            color = MaterialTheme.colorScheme.onBackground
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -62,7 +63,7 @@ fun EmptyState(
             text = description,
             style = MaterialTheme.typography.titleMedium,
             textAlign = TextAlign.Center,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+//            color = MaterialTheme.colorScheme.onBackground,
             modifier = Modifier.padding(horizontal = 48.dp)
         )
 

@@ -1,5 +1,6 @@
 package com.eltonkola.quickplay.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
 
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -37,12 +39,13 @@ fun TvApp(
         Box(
             modifier = Modifier
                 .weight(1f)
-                .padding(16.dp)
+                .background(MaterialTheme.colorScheme.surface)
+                .padding(0.dp)
         ) {
             when (selectedTab) {
-                0 -> GamesPanel(viewModel)
-                1 -> DownloadPanel(viewModel)
-                2 -> ServerPanel(viewModel)
+                0 -> GamesScreen(viewModel)
+                1 -> DownloadScreen(viewModel)
+                2 -> ServerScreen(viewModel)
             }
 
 

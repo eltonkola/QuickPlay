@@ -75,8 +75,8 @@ fun DetailsPanel(
         color = surfaceColor,
         shadowElevation = elevation,
         shape = MaterialTheme.shapes.extraLarge.copy(
-            topStart = MaterialTheme.shapes.small.topStart,
-            bottomStart = MaterialTheme.shapes.small.bottomStart
+            topEnd = MaterialTheme.shapes.small.topStart,
+            bottomEnd = MaterialTheme.shapes.small.bottomStart
         )
     ) {
         Column(

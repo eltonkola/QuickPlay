@@ -41,7 +41,7 @@ fun NavigationDrawer(
     onTabSelected: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val tabTitles = listOf("Games Library", "Download Center", "Web Server")
+    val tabTitles = listOf("Games Library", "Download", "Web Server")
     val icons = listOf(
         Lucide.Gamepad2,
         Lucide.Download,

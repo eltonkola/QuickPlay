@@ -13,14 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.composables.icons.lucide.Lucide
-import com.composables.icons.lucide.Server
 import com.composables.icons.lucide.ServerCog
 import com.eltonkola.quickplay.ui.elements.QrUrl
 
 @Composable
-fun ServerPanel(viewModel: TvAppViewModel) {
+fun ServerScreen(viewModel: TvAppViewModel) {
     val serverState by viewModel.serverState.collectAsState()
     val isRunning = serverState.running
     val ipAddress = serverState.ipAddress.orEmpty()
