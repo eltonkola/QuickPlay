@@ -164,7 +164,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
     private suspend fun cacheGameImagePersistently(
         context: Context,
         url: String,
-        gameId: String
+        gameName: String
     ): String? = withContext(Dispatchers.IO) {
         try {
             val request = ImageRequest.Builder(context)
@@ -179,7 +179,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
             val imageDir = File(context.getExternalFilesDir("images"), "")
             imageDir.mkdirs()
 
-            val imageFile = File(imageDir, "$gameId.png")
+            val imageFile = File(imageDir, "$gameName.png")
             FileOutputStream(imageFile).use {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
             }

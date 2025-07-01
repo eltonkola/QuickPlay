@@ -38,6 +38,7 @@ import com.composables.icons.lucide.Gamepad2
 import com.composables.icons.lucide.Lucide
 import com.composables.icons.lucide.Star
 import com.eltonkola.quickplay.data.local.GameEntity
+import com.eltonkola.quickplay.ui.elements.GameImage
 
 val GRID_ITEMS = 4
 
@@ -142,15 +143,25 @@ fun LandscapeGameCard(
     ) {
         Column {
             // Landscape image (16:9 aspect ratio)
-            AsyncImage(
-                model = game.imageUrl,
-                contentDescription = game.name,
+
+            GameImage(
+                gameName = game.name,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(16f / 9f)
                     .clip(MaterialTheme.shapes.large),
                 contentScale = ContentScale.Crop
             )
+
+//            AsyncImage(
+//                model = game.imageUrl,
+//                contentDescription = game.name,
+//                modifier = Modifier
+//                    .fillMaxWidth()
+//                    .aspectRatio(16f / 9f)
+//                    .clip(MaterialTheme.shapes.large),
+//                contentScale = ContentScale.Crop
+//            )
 
             // Game title and favorite indicator
             Box(
