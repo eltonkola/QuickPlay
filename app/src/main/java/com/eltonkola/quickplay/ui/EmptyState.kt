@@ -22,16 +22,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
-
-// Empty State Implementation
 @Composable
 fun EmptyState(
+    modifier: Modifier = Modifier,
     icon: ImageVector,
     title: String,
     description: String,
     actionText: String? = null,
-    onAction: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    onAction: (() -> Unit)? = null
 ) {
     Column(
         modifier = modifier
