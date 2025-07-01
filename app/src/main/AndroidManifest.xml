@@ -48,4 +48,8 @@
 
     </application>
 
+    <queries>
+        <package android:name="com.explusalpha.Snes9xPlus" />
+    </queries>
+
 </manifest>

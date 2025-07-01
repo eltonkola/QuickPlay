@@ -1,5 +1,11 @@
 package com.eltonkola.quickplay.data
 
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.core.content.FileProvider
+import java.io.File
+
 
 // Data Models
 data class RemoteItem(
@@ -13,15 +19,10 @@ data class RemoteItem(
     val isFavorite: Boolean = false
 )
 
-data class LocalItem(
-    val name: String,
-    val filename: String,
-    val imageUrl: String = "",
-    val isFavorite: Boolean = false
-)
-
 data class DownloadState(
     val isDownloading: Boolean = false,
     val progress: Float = 0f
 )
+
+
 

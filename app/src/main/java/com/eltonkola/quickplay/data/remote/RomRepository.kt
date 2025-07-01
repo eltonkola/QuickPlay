@@ -18,17 +18,6 @@ import java.net.URL
 import java.net.URLDecoder
 import java.util.zip.ZipInputStream
 
-//data class RomItem(
-//    val name: String,
-//    val filename: String,
-//    val downloadUrl: String,
-//    val mediaId: String = "",
-//    val isDownloaded: Boolean = false,
-//    val imageUrl: String = "",
-//    val downloadFileName: String = "",
-//    val isFavorite: Boolean = false
-//)
-
 
 interface RomRepository{
     suspend fun fetchRomsFromWebsite(): List<RemoteItem>
@@ -45,6 +34,8 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
             romsDir.mkdirs()
         }
     }
+
+    //https://www.romsgames.net/roms/super-nintendo/?page=2&sort=popularity
 
     override suspend fun fetchRomsFromWebsite(): List<RemoteItem> = withContext(Dispatchers.IO) {
         val baseUrl = "https://www.romsgames.net"
@@ -95,38 +86,7 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
         } catch (e: Exception) {
             // Fallback with sample data for development
             listOf(
-                RemoteItem(
-                    "Super Mario World",
-                    "super_mario_world.smc",
-                    "$baseUrl/download/super-mario-world"
-                ),
-                RemoteItem(
-                    "The Legend of Zelda: A Link to the Past",
-                    "zelda_link_to_past.smc",
-                    "$baseUrl/download/zelda-link-past"
-                ),
-                RemoteItem("Super Metroid", "super_metroid.smc", "$baseUrl/download/super-metroid"),
-                RemoteItem(
-                    "Donkey Kong Country",
-                    "donkey_kong_country.smc",
-                    "$baseUrl/download/donkey-kong-country"
-                ),
-                RemoteItem(
-                    "Final Fantasy VI",
-                    "final_fantasy_vi.smc",
-                    "$baseUrl/download/final-fantasy-vi"
-                ),
-                RemoteItem("Chrono Trigger", "chrono_trigger.smc", "$baseUrl/download/chrono-trigger"),
-                RemoteItem(
-                    "Super Mario Kart",
-                    "super_mario_kart.smc",
-                    "$baseUrl/download/super-mario-kart"
-                ),
-                RemoteItem(
-                    "Street Fighter II",
-                    "street_fighter_ii.smc",
-                    "$baseUrl/download/street-fighter-ii"
-                )
+
             )
         }
     }

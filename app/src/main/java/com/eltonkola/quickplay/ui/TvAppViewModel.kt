@@ -1,35 +1,37 @@
 package com.eltonkola.quickplay.ui
 
+import android.app.Application
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eltonkola.quickplay.data.DownloadState
-import com.eltonkola.quickplay.data.LocalItem
 import com.eltonkola.quickplay.data.RemoteItem
+import com.eltonkola.quickplay.data.WebServerManager
 import com.eltonkola.quickplay.data.local.GameDao
 import com.eltonkola.quickplay.data.local.GameEntity
 import com.eltonkola.quickplay.data.remote.RomRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
-import kotlin.collections.filter
-import kotlin.collections.map
-import kotlin.collections.plus
-
 
 
 @HiltViewModel
 class TvAppViewModel  @Inject constructor(
     private val repository: RomRepository,
-    private val dao: GameDao
-
+    private val dao: GameDao,
+    private val application: Application,
+    private val webServerManager: WebServerManager
 ) : ViewModel() {
     private val _selectedTab = MutableStateFlow(0)
     val selectedTab: StateFlow<Int> = _selectedTab
@@ -63,11 +65,19 @@ class TvAppViewModel  @Inject constructor(
     private val _isServerOn = MutableStateFlow(false)
     val isServerOn: StateFlow<Boolean> = _isServerOn
 
-    private val _serverUrl = MutableStateFlow<String?>(null)
-    val serverUrl: StateFlow<String?> = _serverUrl
+
+    private val _serverState = MutableStateFlow(WebServerManager.ServerState(running = false))
+    val serverState: StateFlow<WebServerManager.ServerState> = _serverState
+
 
     init {
         refreshRemoteItems()
+
+        viewModelScope.launch {
+            webServerManager.serverState.collect { state ->
+                _serverState.value = state
+            }
+        }
     }
 
     fun refreshRemoteItems() {
@@ -95,12 +105,14 @@ class TvAppViewModel  @Inject constructor(
     }
 
     fun toggleFavorite(game: GameEntity) {
+        closeDetails()
         viewModelScope.launch {
             dao.updateGame(game.copy(isFavorite = !game.isFavorite))
         }
     }
 
     fun deleteGame(game: GameEntity) {
+        closeDetails()
         viewModelScope.launch {
             game.filename?.let { repository.deleteRom(it) }
             dao.deleteGame(game)
@@ -108,6 +120,7 @@ class TvAppViewModel  @Inject constructor(
     }
 
     fun downloadRom(remoteItem: RemoteItem) {
+        closeDetails()
         if (remoteItem.isDownloaded) return
 
         _downloadStates.update { it + (remoteItem.downloadUrl to DownloadState(isDownloading = true)) }
@@ -139,6 +152,7 @@ class TvAppViewModel  @Inject constructor(
     }
 
     fun deleteDownload(item: RemoteItem) {
+        closeDetails()
         viewModelScope.launch {
             item.downloadFileName?.let { repository.deleteRom(it) }
             _remoteItems.update { items ->
@@ -149,20 +163,57 @@ class TvAppViewModel  @Inject constructor(
         }
     }
 
-    fun launchGame(item: Any) {
+    fun launchGame(romFileName: String) {
         // Launch game based on type
+
+        closeDetails()
+
+        application.launchRom(romFileName)
     }
 
     fun toggleServer(on: Boolean) {
         _isServerOn.value = on
-        if (on) {
-            // Start server and get URL
-            _serverUrl.value = "http://yourserver.com:8080"
-        } else {
-            // Stop server
-            _serverUrl.value = null
+        viewModelScope.launch(Dispatchers.IO) {
+            if (on) {
+                webServerManager.startServer()
+            } else {
+                webServerManager.stopServer()
+            }
         }
     }
 
 }
 
+fun Context.launchRom(romFileName: String) {
+    try {
+        // romFileName is the extracted .smc or .sfc filename (e.g. "Super Mario World (U) [!].smc")
+        val romFile = File(getExternalFilesDir("roms"), romFileName)
+
+        if (!romFile.exists()) {
+            Toast.makeText(this, "ROM file not found: $romFileName", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        val uri = FileProvider.getUriForFile(
+            this,
+            "$packageName.provider",
+            romFile
+        )
+
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/octet-stream")
+            setPackage("com.explusalpha.Snes9xPlus")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+
+        if (intent.resolveActivity(packageManager) != null) {
+            startActivity(intent)
+        } else {
+            Toast.makeText(this, "Snes9x EX+ not installed", Toast.LENGTH_LONG).show()
+        }
+
+    } catch (e: Exception) {
+        e.printStackTrace()
+        Toast.makeText(this, "Failed to launch ROM: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}

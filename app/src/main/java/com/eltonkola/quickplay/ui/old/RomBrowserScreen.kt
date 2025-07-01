@@ -141,39 +141,7 @@ fun RomBrowserScreen() {
 //        }
 //    }
 //}
-//fun Context.launchRom(romFileName: String) {
-//    try {
-//        // romFileName is the extracted .smc or .sfc filename (e.g. "Super Mario World (U) [!].smc")
-//        val romFile = File(getExternalFilesDir("roms"), romFileName)
-//
-//        if (!romFile.exists()) {
-//            Toast.makeText(this, "ROM file not found: $romFileName", Toast.LENGTH_LONG).show()
-//            return
-//        }
-//
-//        val uri = FileProvider.getUriForFile(
-//            this,
-//            "$packageName.provider",
-//            romFile
-//        )
-//
-//        val intent = Intent(Intent.ACTION_VIEW).apply {
-//            setDataAndType(uri, "application/octet-stream")
-//            setPackage("com.explusalpha.Snes9xPlus")
-//            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
-//        }
-//
-//        if (intent.resolveActivity(packageManager) != null) {
-//            startActivity(intent)
-//        } else {
-//            Toast.makeText(this, "Snes9x EX+ not installed", Toast.LENGTH_LONG).show()
-//        }
-//
-//    } catch (e: Exception) {
-//        e.printStackTrace()
-//        Toast.makeText(this, "Failed to launch ROM: ${e.message}", Toast.LENGTH_LONG).show()
-//    }
-//}
+
 //
 //
 //@OptIn(ExperimentalMaterial3Api::class)

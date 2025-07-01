@@ -2,6 +2,7 @@ package com.eltonkola.quickplay
 
 import android.app.Application
 import androidx.room.Room
+import com.eltonkola.quickplay.data.WebServerManager
 import com.eltonkola.quickplay.data.local.AppDatabase
 import com.eltonkola.quickplay.data.local.GameDao
 import com.eltonkola.quickplay.data.remote.RomRepository
@@ -45,6 +46,14 @@ object AppModule {
     }
 
 
+    @Provides
+    @Singleton
+    fun provideWebServerManager(
+        app: Application,
+        gameDao: GameDao
+    ): WebServerManager {
+        return WebServerManager(app, gameDao)
+    }
 
 
 }

@@ -41,6 +41,14 @@ android {
     buildFeatures {
         compose = true
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/INDEX.LIST"
+            excludes += "META-INF/*.md"
+            excludes += "META-INF/io.netty.versions.properties"
+        }
+    }
 }
 
 dependencies {
@@ -67,6 +75,11 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
+
+    implementation(libs.nanohttpd)
+    implementation(libs.bcprov.jdk15on)
+    implementation("org.bouncycastle:bcpkix-jdk15on:1.70")
+
 
     implementation(libs.hilt.android)
     ksp(libs.hilt.android.compiler)
