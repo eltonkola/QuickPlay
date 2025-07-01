@@ -77,8 +77,6 @@ dependencies {
     implementation(libs.androidx.room.ktx)
 
     implementation(libs.nanohttpd)
-    implementation(libs.bcprov.jdk15on)
-    implementation("org.bouncycastle:bcpkix-jdk15on:1.70")
 
 
     implementation(libs.hilt.android)

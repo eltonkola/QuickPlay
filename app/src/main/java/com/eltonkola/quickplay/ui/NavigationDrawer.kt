@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Divider
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -97,15 +99,11 @@ fun NavigationDrawer(
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp, vertical = 16.dp)
             ) {
-                Text(
-                    "Settings",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .clickable { /* Open settings */ }
-                        .padding(vertical = 12.dp)
+                HorizontalDivider(
+                    Modifier,
+                    DividerDefaults.Thickness,
+                    color = MaterialTheme.colorScheme.outlineVariant
                 )
-                Divider(color = MaterialTheme.colorScheme.outlineVariant)
                 Text(
                     "v1.0.0",
                     style = MaterialTheme.typography.bodySmall,

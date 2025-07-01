@@ -1,6 +1,5 @@
 package com.eltonkola.quickplay.data
 
-import android.R.attr.port
 import android.content.Context
 import com.eltonkola.quickplay.data.local.GameDao
 import com.eltonkola.quickplay.data.local.GameEntity
@@ -14,12 +13,10 @@ import java.io.File
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
-import java.security.KeyStore
-import java.util.*
+import java.util.Collections
 import java.util.zip.ZipInputStream
 import javax.inject.Inject
 import javax.inject.Singleton
-import javax.net.ssl.KeyManagerFactory
 
 
 @Singleton
@@ -54,32 +51,11 @@ class WebServerManager @Inject constructor(
             if (!uploadDir.exists()) uploadDir.mkdirs()
 
 
-            val password = "iboughtosmanysnesgamesasakid"
-            val port =  findFreePort()
+             val port =  findFreePort()
             val ip = getLocalIpAddress()
-            val keyStoreFile = File(context.filesDir, "keystore.p12")
 
-            if (keyStoreFile.exists()) {
-                keyStoreFile.delete()
-            }
-
-            SelfSignedKeystore.createKeystore(file = keyStoreFile, password = password)
-
-            val keyStore = KeyStore.getInstance("PKCS12").apply {
-                load(keyStoreFile.inputStream(), password.toCharArray())
-            }
-
-            val keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm()).apply {
-                init(keyStore, password.toCharArray())
-            }
 
             server = object : NanoHTTPD(port) {
-                init {
-                    makeSecure(
-                        makeSSLSocketFactory(keyStore, keyManagerFactory),
-                        null
-                    )
-                }
 
                 override fun serve(session: IHTTPSession): Response {
                     return when {
