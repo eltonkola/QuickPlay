@@ -20,7 +20,7 @@ import java.util.zip.ZipInputStream
 
 
 interface RomRepository{
-    suspend fun fetchRomsFromWebsite(): List<RemoteItem>
+    suspend fun fetchRomsFromWebsite(page: Int): List<RemoteItem>
     suspend fun downloadRom(rom: RemoteItem): RemoteItem
     suspend fun deleteRom(filename: String)
 }
@@ -35,11 +35,10 @@ class RomRepositoryImpl(private val context: Context) : RomRepository {
         }
     }
 
-    //https://www.romsgames.net/roms/super-nintendo/?page=2&sort=popularity
 
-    override suspend fun fetchRomsFromWebsite(): List<RemoteItem> = withContext(Dispatchers.IO) {
+    override suspend fun fetchRomsFromWebsite(page: Int): List<RemoteItem> = withContext(Dispatchers.IO) {
         val baseUrl = "https://www.romsgames.net"
-        val url = "$baseUrl/roms/super-nintendo/"
+        val url = "$baseUrl/roms/super-nintendo/?page=$page&sort=popularity"
 
         try {
             val doc = Jsoup.connect(url)

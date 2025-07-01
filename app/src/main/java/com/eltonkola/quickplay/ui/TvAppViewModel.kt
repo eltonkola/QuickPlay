@@ -69,9 +69,12 @@ class TvAppViewModel  @Inject constructor(
     private val _serverState = MutableStateFlow(WebServerManager.ServerState(running = false))
     val serverState: StateFlow<WebServerManager.ServerState> = _serverState
 
+    private var currentPage = 1
+    var isLoading = false
+    private var endReached = false
 
     init {
-        refreshRemoteItems()
+        loadNextPage()
 
         viewModelScope.launch {
             webServerManager.serverState.collect { state ->
@@ -80,9 +83,19 @@ class TvAppViewModel  @Inject constructor(
         }
     }
 
-    fun refreshRemoteItems() {
+    fun loadNextPage() {
+        if (isLoading || endReached) return
+        isLoading = true
+
         viewModelScope.launch {
-            _remoteItems.value = repository.fetchRomsFromWebsite()
+            val newItems = repository.fetchRomsFromWebsite(currentPage)
+            if (newItems.isEmpty()) {
+                endReached = true
+            } else {
+                _remoteItems.value = _remoteItems.value + newItems
+                currentPage++
+            }
+            isLoading = false
         }
     }
 

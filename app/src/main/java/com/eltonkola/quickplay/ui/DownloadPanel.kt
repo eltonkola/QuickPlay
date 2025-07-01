@@ -2,6 +2,7 @@ package com.eltonkola.quickplay.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,13 +19,16 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,13 +57,13 @@ fun DownloadPanel(viewModel: TvAppViewModel) {
     val remoteItems by viewModel.remoteItems.collectAsState()
 
     Box(modifier = Modifier.fillMaxSize()) {
-        if (remoteItems.isEmpty()) {
+        if (remoteItems.isEmpty() && !viewModel.isLoading) {
             EmptyState(
                 icon = Lucide.CloudOff,
                 title = "No Content Available",
                 description = "Unable to fetch download items. Check your connection and try again",
                 actionText = "Retry",
-                onAction = { viewModel.refreshRemoteItems() }
+                onAction = { viewModel.loadNextPage() }
             )
         } else {
             Column(
@@ -85,13 +89,35 @@ fun DownloadPanel(viewModel: TvAppViewModel) {
                         )
                     }
 
-                    items(remoteItems) { item ->
+                    itemsIndexed(remoteItems) { index, item ->
                         LandscapeDownloadCard(
                             item = item,
                             downloadState = viewModel.downloadStates.value[item.downloadUrl] ?: DownloadState(),
                             onClick = { viewModel.selectItem(item) }
                         )
+
+
+                        if (index >= remoteItems.size - 4) {
+                            LaunchedEffect(Unit) {
+                                viewModel.loadNextPage()
+                            }
+                        }
+
+
                     }
+
+                    if (viewModel.isLoading) {
+                        item(span = { GridItemSpan(GRID_ITEMS) }) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.padding(all = 16.dp)
+                            ){
+                                CircularProgressIndicator()
+                            }
+                        }
+                    }
+
+
                 }
             }
         }
